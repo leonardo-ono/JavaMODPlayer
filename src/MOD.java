@@ -64,7 +64,7 @@ public class MOD {
     
         Sample sample;
     
-        int period;
+        //int period;
         double notePeriod;
 
         double noteFrequency;
@@ -170,9 +170,9 @@ public class MOD {
                     tremoloPos = 0;
                 } 
     
-                double nf = AMIGA_CLOCK / (2.0 * note.samplePeriodValue);
-                nf = nf * Math.pow(2.0, (1.0 / 12.0 / 8.0) * sample.fineTune);
-                period = (int) (AMIGA_CLOCK / (2 * nf));
+                //double nf = AMIGA_CLOCK / (2.0 * note.samplePeriodValue);
+                //nf = nf * Math.pow(2.0, (1.0 / 12.0 / 8.0) * sample.fineTune);
+                //period = (int) (AMIGA_CLOCK / (2 * nf));
                 
                 if (note.effectNumber != 3 && note.effectNumber != 5) {
                     setNotePeriod(note.samplePeriodValue);
@@ -180,7 +180,7 @@ public class MOD {
                 }
             }    
         }
-        
+
         // tick 0
         public void startEffect(PatternNote note) {
             switch (note.effectNumber) {
@@ -189,7 +189,7 @@ public class MOD {
                         portaSpeed = note.effectParameters;
                     }
                     if (note.samplePeriodValue > 0) {
-                        noteToPortaTo = period;
+                        noteToPortaTo = note.samplePeriodValue;
                     }
                 }
     
@@ -252,7 +252,7 @@ public class MOD {
     
                         case 0x4 -> { // set vibrato waveform
                             vibratoWavControl = extendedValue;
-                        }
+                        } 
     
                         case 0x5 -> { // set instrument finetune
                             sample.fineTune = extendedValue > 7 ? extendedValue - 16 : extendedValue;
@@ -337,8 +337,53 @@ public class MOD {
                 case 0x4 -> { // vibrato
                     vibratoPos += vibratoSpeed;
                     double x = (vibratoPos / 64.0) * 2 * Math.PI;
-                    int n = (int) (vibratoDepth * 1.0 * Math.sin(x));
+                    int n = (int) (vibratoDepth * 2.0 * Math.sin(x));
                     setHardwareFrequency(noteFrequency * Math.pow(2.0, (1.0 / 12.0 / 16.0) * n));
+                }
+
+                // TODO: temporary 
+                case 0x5 -> { // porta + volume slide
+                    double sign = noteToPortaTo - notePeriod;
+                    if (sign > 0) {
+                        notePeriod += portaSpeed;
+                        if (notePeriod > noteToPortaTo) {
+                            notePeriod = noteToPortaTo;
+                        }
+                    }
+                    else if (sign < 0) {
+                        notePeriod -= portaSpeed;
+                        if (notePeriod < noteToPortaTo) {
+                            notePeriod = noteToPortaTo;
+                        }
+                    }
+                    setNotePeriod(notePeriod);
+                    setHardwareFrequency(noteFrequency);
+
+                    int volumeSlide = 0;
+                    int up = (note.effectParameters & 0xf0) >> 8;
+                    int down = (note.effectParameters & 0xf);
+                    if (up > 0) volumeSlide = up;
+                    if (down > 0) volumeSlide = -down;
+                    if (up > 0 && down > 0) volumeSlide = 0;
+                    setHardwareVolume(hardwareVolume + volumeSlide);
+                    volume = hardwareVolume;
+                }
+
+                // TODO: temporary 
+                case 0x6 -> { // vibrato + volume slide
+                    vibratoPos += vibratoSpeed;
+                    double x = (vibratoPos / 64.0) * 2 * Math.PI;
+                    int n = (int) (vibratoDepth * 2.0 * Math.sin(x));
+                    setHardwareFrequency(noteFrequency * Math.pow(2.0, (1.0 / 12.0 / 16.0) * n));
+
+                    int volumeSlide = 0;
+                    int up = (note.effectParameters & 0xf0) >> 8;
+                    int down = (note.effectParameters & 0xf);
+                    if (up > 0) volumeSlide = up;
+                    if (down > 0) volumeSlide = -down;
+                    if (up > 0 && down > 0) volumeSlide = 0;
+                    setHardwareVolume(hardwareVolume + volumeSlide);
+                    volume = hardwareVolume;
                 }
     
                 case 0x7 -> { // tremolo

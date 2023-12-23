@@ -1,3 +1,8 @@
+music: drozerix_-_ai_renaissance.mod
+author: Drozerix
+license: Public Domain
+original link: https://modarchive.org/index.php?request=view_by_moduleid&query=200847
+
 music: 8bit_castle.mod
 author: JAM
 license: Public Domain
