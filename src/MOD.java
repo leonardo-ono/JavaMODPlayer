@@ -104,7 +104,11 @@ public class MOD {
         
         public void setNotePeriod(double period) {
             this.noteFrequency = AMIGA_CLOCK / (2.0 * period);
-            noteFrequency = noteFrequency * Math.pow(2.0, (1.0 / 12.0 / 8.0) * sample.fineTune);
+            int fineTune = 0;
+            if (sample != null) {
+                fineTune = sample.fineTune;
+            }
+            noteFrequency = noteFrequency * Math.pow(2.0, (1.0 / 12.0 / 8.0) * fineTune);
         }
         
         public void setHardwareFrequency(double noteFrequency) {
@@ -467,11 +471,14 @@ public class MOD {
             }
 
             case 0xd -> { // pattern break
-                startRow = note.effectParameters;
+                startRow = 10 * ((note.effectParameters & 0xf0) >> 4) + (note.effectParameters & 0xf);
                 if (startRow < 0) startRow = 0;
                 if (startRow > 63) startRow = 0;
                 startPattern = orderTableIndex + 1;
+                
+                // TODO: can't loop from last to first pattern
                 //if (startPattern > songLength - 1) startPattern = 0;
+
                 breakPattern = true;
             }
 
@@ -562,7 +569,7 @@ public class MOD {
                         for (int s = 0; s < samplesPerTick; s++) {
                             byte mixedSample = 0;
                             for (int ch = 0; ch < channelsNum; ch++) {
-                                int ms = mixedSample + channels[ch].getNextSample() / 4;
+                                int ms = mixedSample + channels[ch].getNextSample() / 2;
                                 mixedSample = (byte) Math.max(Math.min(ms, 127), -128);
                             }
                             baos.write(mixedSample);
