@@ -250,7 +250,7 @@ public class MOD {
                         }
     
                         case 0x5 -> { // set instrument finetune
-                            sample.fineTune = extendedValue;
+                            sample.fineTune = extendedValue > 7 ? extendedValue - 16 : extendedValue;
                         }
     
                         case 0x7 -> { // set tremolo waveform
@@ -294,18 +294,20 @@ public class MOD {
                 }
     
                 case 0x1 -> { // slide up (portamento up)
-                    noteFrequency -= note.effectParameters;
-                    if (noteFrequency < AMIGA_CLOCK / (2 * 108.0)) {
-                        noteFrequency = AMIGA_CLOCK / (2 * 108.0);
+                    period -= note.effectParameters;
+                    if (period < 108) {
+                        period = 108;
                     }
+                    setNotePeriod(period);
                     setHardwareFrequency(noteFrequency);
                 }
                 
                 case 0x2 -> { // slide down (portamento down)
-                    noteFrequency += note.effectParameters;
-                    if (noteFrequency > AMIGA_CLOCK / (2 * 907.0)) {
-                        noteFrequency = AMIGA_CLOCK / (2 * 907.0);
+                    period += note.effectParameters;
+                    if (period > 907) {
+                        period = 907;
                     }
+                    setNotePeriod(period);
                     setHardwareFrequency(noteFrequency);
                 }
     
@@ -414,6 +416,7 @@ public class MOD {
             bb.position(bb.position() + 22); // skip name
             int sampleLength = 2 * (bb.getShort() & 0xffff);
             int sampleFineTune = bb.get() & 0xff;
+            sampleFineTune = sampleFineTune > 7 ? sampleFineTune - 16 : sampleFineTune;
             int sampleVolume = bb.get() & 0xff;
             int sampleLoopStart = 2 * (bb.getShort() & 0xffff);
             int sampleLoopLength = 2 * (bb.getShort() & 0xffff);
@@ -468,7 +471,7 @@ public class MOD {
                 if (startRow < 0) startRow = 0;
                 if (startRow > 63) startRow = 0;
                 startPattern = orderTableIndex + 1;
-                if (startPattern > songLength - 1) startPattern = 0;
+                //if (startPattern > songLength - 1) startPattern = 0;
                 breakPattern = true;
             }
 
@@ -559,7 +562,7 @@ public class MOD {
                         for (int s = 0; s < samplesPerTick; s++) {
                             byte mixedSample = 0;
                             for (int ch = 0; ch < channelsNum; ch++) {
-                                int ms = mixedSample + channels[ch].getNextSample() / 2;
+                                int ms = mixedSample + channels[ch].getNextSample() / 4;
                                 mixedSample = (byte) Math.max(Math.min(ms, 127), -128);
                             }
                             baos.write(mixedSample);
