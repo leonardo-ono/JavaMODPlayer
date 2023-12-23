@@ -65,7 +65,8 @@ public class MOD {
         Sample sample;
     
         int period;
-    
+        double notePeriod;
+
         double noteFrequency;
         double pitchFactor;
     
@@ -103,6 +104,7 @@ public class MOD {
         }
         
         public void setNotePeriod(double period) {
+            this.notePeriod = period;
             this.noteFrequency = AMIGA_CLOCK / (2.0 * period);
             int fineTune = 0;
             if (sample != null) {
@@ -170,7 +172,6 @@ public class MOD {
     
                 double nf = AMIGA_CLOCK / (2.0 * note.samplePeriodValue);
                 nf = nf * Math.pow(2.0, (1.0 / 12.0 / 8.0) * sample.fineTune);
-                
                 period = (int) (AMIGA_CLOCK / (2 * nf));
                 
                 if (note.effectNumber != 3 && note.effectNumber != 5) {
@@ -286,7 +287,7 @@ public class MOD {
                         case 0 -> setHardwareFrequency(noteFrequency);
     
                         case 1 -> {
-                            int n = (note.effectParameters & 0xf0) >> 8;
+                            int n = (note.effectParameters & 0xf0) >> 4;
                             setHardwareFrequency(noteFrequency * Math.pow(2, n / 12.0));
                         }
     
@@ -298,38 +299,38 @@ public class MOD {
                 }
     
                 case 0x1 -> { // slide up (portamento up)
-                    period -= note.effectParameters;
-                    if (period < 108) {
-                        period = 108;
+                    notePeriod -= note.effectParameters;
+                    if (notePeriod < 108) {
+                        notePeriod = 108;
                     }
-                    setNotePeriod(period);
+                    setNotePeriod(notePeriod);
                     setHardwareFrequency(noteFrequency);
                 }
                 
                 case 0x2 -> { // slide down (portamento down)
-                    period += note.effectParameters;
-                    if (period > 907) {
-                        period = 907;
+                    notePeriod += note.effectParameters;
+                    if (notePeriod > 907) {
+                        notePeriod = 907;
                     }
-                    setNotePeriod(period);
+                    setNotePeriod(notePeriod);
                     setHardwareFrequency(noteFrequency);
                 }
     
                 case 0x3 -> { // porta to note (glissando)
-                    double sign = noteToPortaTo - period;
+                    double sign = noteToPortaTo - notePeriod;
                     if (sign > 0) {
-                        period += portaSpeed;
-                        if (period > noteToPortaTo) {
-                            period = noteToPortaTo;
+                        notePeriod += portaSpeed;
+                        if (notePeriod > noteToPortaTo) {
+                            notePeriod = noteToPortaTo;
                         }
                     }
                     else if (sign < 0) {
-                        period -= portaSpeed;
-                        if (period < noteToPortaTo) {
-                            period = noteToPortaTo;
+                        notePeriod -= portaSpeed;
+                        if (notePeriod < noteToPortaTo) {
+                            notePeriod = noteToPortaTo;
                         }
                     }
-                    setNotePeriod(period);
+                    setNotePeriod(notePeriod);
                     setHardwareFrequency(noteFrequency);
                 }
     
@@ -569,7 +570,7 @@ public class MOD {
                         for (int s = 0; s < samplesPerTick; s++) {
                             byte mixedSample = 0;
                             for (int ch = 0; ch < channelsNum; ch++) {
-                                int ms = mixedSample + channels[ch].getNextSample() / 2;
+                                int ms = mixedSample + channels[ch].getNextSample() / 4;
                                 mixedSample = (byte) Math.max(Math.min(ms, 127), -128);
                             }
                             baos.write(mixedSample);
