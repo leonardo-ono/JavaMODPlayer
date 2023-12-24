@@ -358,8 +358,7 @@ public class MOD {
     
                 case 0x7 -> { // tremolo
                     tremoloPos += tremoloSpeed;
-                    double x = (tremoloPos / 64.0) * 2 * Math.PI;
-                    int n = (int) (tremoloDepth * 4.0 * Math.sin(x));
+                    int n = (int) (tremoloDepth * 4.0 * getWave(tremoloPos, tremoloWavControl));
                     setHardwareVolume(volume + n);
                 }
     
@@ -382,6 +381,18 @@ public class MOD {
 
             } 
         }
+        
+        private double getWave(double wavPos, int wavControl) {
+            double y = 0;
+            double x = (wavPos / 64.0) * 2 * Math.PI;
+            int waveform = wavControl & 0x7;
+            switch (waveform) {
+                case 0, 3 -> y = Math.sin(x); // sine and random
+                case 1 -> y = ((x % (2 * Math.PI)) / Math.PI) - 1.0;  // ramp down
+                case 2 -> y = Math.sin(x) < 0 ? 1.0 : -1.0;  // square
+            }
+            return y;
+        }
 
         private void applyPortaToNoteEffect() {
             double sign = noteToPortaTo - notePeriod;
@@ -403,8 +414,7 @@ public class MOD {
 
         private void applyVibratoEffect() {
             vibratoPos += vibratoSpeed;
-            double x = (vibratoPos / 64.0) * 2 * Math.PI;
-            int n = (int) (vibratoDepth * 2.0 * Math.sin(x));
+            int n = (int) (vibratoDepth * 2.0 * getWave(vibratoPos, vibratoWavControl));
             setHardwareFrequency(noteFrequency * Math.pow(2.0, (1.0 / 12.0 / 16.0) * n));
         }
 
