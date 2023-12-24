@@ -2,7 +2,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -65,7 +64,6 @@ public class MOD {
     
         Sample sample;
     
-        //int period;
         double notePeriod;
 
         double noteFrequency;
@@ -92,6 +90,9 @@ public class MOD {
         int tremoloDepth;
         int tremoloSpeed;
         int tremoloWavControl;
+
+        int loopRow;
+        int loopCount;
      
         public void setSample(Sample sample) {
             this.sample = sample;
@@ -172,10 +173,6 @@ public class MOD {
                     tremoloPos = 0;
                 } 
     
-                //double nf = AMIGA_CLOCK / (2.0 * note.samplePeriodValue);
-                //nf = nf * Math.pow(2.0, (1.0 / 12.0 / 8.0) * sample.fineTune);
-                //period = (int) (AMIGA_CLOCK / (2 * nf));
-                
                 if (note.effectNumber != 3 && note.effectNumber != 5) {
                     setNotePeriod(note.samplePeriodValue);
                     setHardwareFrequency(noteFrequency);
@@ -508,10 +505,7 @@ public class MOD {
         }
     }
 
-    private Stack<Integer> loopRowStack = new Stack<>();
-    private Stack<Integer> loopCountStack = new Stack<>();
-
-    private void startEffect(PatternNote note, int orderTableIndex, int currentRow) {
+    private void startEffect(Channel channel, PatternNote note, int orderTableIndex, int currentRow) {
         switch (note.effectNumber) {
             case 0xb -> { // jump to pattern
                 lastJumpToPatternRow = currentRow;
@@ -551,37 +545,16 @@ public class MOD {
                 int extendedEffectId = (note.effectParameters & 0xf0) >> 4;
                 int extendedValue = note.effectParameters & 0xf;
                 switch (extendedEffectId) {
-
-                    // check ODE2PTK.MOD order 4 (pattern #1)
-                    // nested pattern loop's:
-                    // row 18
-                    //    row 24
-                    //    row 25
-                    // row 31
                     case 0x6 -> { // pattern loop
                         if (extendedValue == 0) {
-                            if (!loopRowStack.contains(currentRow)) {
-                                loopRowStack.push(currentRow);
-                                loopCountStack.push(loopCount);
-                                loopCount = 0;
-                            }
+                            channel.loopRow = currentRow;
                         }
                         else {
-                            if (loopCount == 0) {
-                                loopCount = extendedValue;
-                            }
-                            else {
-                                loopCount--;
-                            }
-                            
-                            if (loopCount > 0) {
-                                startRow = loopRowStack.peek();
+                            channel.loopCount = (channel.loopCount == 0) ? extendedValue : channel.loopCount - 1;
+                            if (channel.loopCount > 0) {
+                                startRow = channel.loopRow;
                                 startPattern = orderTableIndex;
                                 breakPattern = true;
-                            }
-                            else {
-                                loopRowStack.pop();
-                                loopCount = loopCountStack.pop();
                             }
                         }
                     }
@@ -604,7 +577,6 @@ public class MOD {
     private boolean breakPattern = false;
     private int startPattern = 0;
     private int startRow = 0;
-    private int loopCount = 0;
     private int lastJumpToPatternRow = -1;
 
     public byte[] generatePCM() {
@@ -613,8 +585,12 @@ public class MOD {
         breakPattern = false;
         startPattern = 0;
         startRow = 0;
-        loopCount = 0;
         lastJumpToPatternRow = -1;
+        
+        for (int ch = 0; ch < channelsNum; ch++) {
+            channels[ch].loopRow = 0;
+            channels[ch].loopCount = 0;
+        }
 
         boolean playing = true;
 
@@ -643,7 +619,7 @@ public class MOD {
 
                                 if (note.effectNumber != 0 || note.effectParameters != 0) {
                                     channel.startEffect(note);
-                                    startEffect(note, orderTableIndex, currentRow);
+                                    startEffect(channel, note, orderTableIndex, currentRow);
                                 }
                             }
                             else {
