@@ -152,13 +152,7 @@ public class MOD {
             return (byte) (nextSample * volumeFactor);
         }
         
-        private MOD mod;
-        private PatternNote lastNote;
-    
         public void triggerNote(MOD mod, PatternNote note) {
-            this.mod = mod;
-            this.lastNote = note;
-    
             if (note.sampleNumber > 0) {
                 Sample sample = mod.samples[note.sampleNumber - 1];
                 setSample(sample);
@@ -251,7 +245,11 @@ public class MOD {
                             }
                             setHardwareFrequency(noteFrequency);
                         }
-    
+                        
+                        case 0x3 -> { // glissando control
+                            // TODO: It toggles whether to do a smooth slide or whether to slide in jumps of semitones. 
+                        }
+
                         case 0x4 -> { // set vibrato waveform
                             vibratoWavControl = extendedValue;
                         } 
