@@ -339,73 +339,21 @@ public class MOD {
                 }
     
                 case 0x3 -> { // porta to note (glissando)
-                    double sign = noteToPortaTo - notePeriod;
-                    if (sign > 0) {
-                        notePeriod += portaSpeed;
-                        if (notePeriod > noteToPortaTo) {
-                            notePeriod = noteToPortaTo;
-                        }
-                    }
-                    else if (sign < 0) {
-                        notePeriod -= portaSpeed;
-                        if (notePeriod < noteToPortaTo) {
-                            notePeriod = noteToPortaTo;
-                        }
-                    }
-                    setNotePeriod(notePeriod);
-                    setHardwareFrequency(noteFrequency);
+                    applyPortaToNoteEffect();
                 }
     
                 case 0x4 -> { // vibrato
-                    vibratoPos += vibratoSpeed;
-                    double x = (vibratoPos / 64.0) * 2 * Math.PI;
-                    int n = (int) (vibratoDepth * 2.0 * Math.sin(x));
-                    setHardwareFrequency(noteFrequency * Math.pow(2.0, (1.0 / 12.0 / 16.0) * n));
+                    applyVibratoEffect();
                 }
 
-                // TODO: temporary 
                 case 0x5 -> { // porta + volume slide
-                    double sign = noteToPortaTo - notePeriod;
-                    if (sign > 0) {
-                        notePeriod += portaSpeed;
-                        if (notePeriod > noteToPortaTo) {
-                            notePeriod = noteToPortaTo;
-                        }
-                    }
-                    else if (sign < 0) {
-                        notePeriod -= portaSpeed;
-                        if (notePeriod < noteToPortaTo) {
-                            notePeriod = noteToPortaTo;
-                        }
-                    }
-                    setNotePeriod(notePeriod);
-                    setHardwareFrequency(noteFrequency);
-
-                    int volumeSlide = 0;
-                    int up = (note.effectParameters & 0xf0) >> 8;
-                    int down = (note.effectParameters & 0xf);
-                    if (up > 0) volumeSlide = up;
-                    if (down > 0) volumeSlide = -down;
-                    if (up > 0 && down > 0) volumeSlide = 0;
-                    setHardwareVolume(hardwareVolume + volumeSlide);
-                    volume = hardwareVolume;
+                    applyPortaToNoteEffect();
+                    applyVolumeSlideEffect(note);
                 }
 
-                // TODO: temporary 
                 case 0x6 -> { // vibrato + volume slide
-                    vibratoPos += vibratoSpeed;
-                    double x = (vibratoPos / 64.0) * 2 * Math.PI;
-                    int n = (int) (vibratoDepth * 2.0 * Math.sin(x));
-                    setHardwareFrequency(noteFrequency * Math.pow(2.0, (1.0 / 12.0 / 16.0) * n));
-
-                    int volumeSlide = 0;
-                    int up = (note.effectParameters & 0xf0) >> 8;
-                    int down = (note.effectParameters & 0xf);
-                    if (up > 0) volumeSlide = up;
-                    if (down > 0) volumeSlide = -down;
-                    if (up > 0 && down > 0) volumeSlide = 0;
-                    setHardwareVolume(hardwareVolume + volumeSlide);
-                    volume = hardwareVolume;
+                    applyVibratoEffect();
+                    applyVolumeSlideEffect(note);
                 }
     
                 case 0x7 -> { // tremolo
@@ -416,14 +364,7 @@ public class MOD {
                 }
     
                 case 0xa -> { // volume slide
-                    int volumeSlide = 0;
-                    int up = (note.effectParameters & 0xf0) >> 8;
-                    int down = (note.effectParameters & 0xf);
-                    if (up > 0) volumeSlide = up;
-                    if (down > 0) volumeSlide = -down;
-                    if (up > 0 && down > 0) volumeSlide = 0;
-                    setHardwareVolume(hardwareVolume + volumeSlide);
-                    volume = hardwareVolume;
+                    applyVolumeSlideEffect(note);
                 }
     
                 case 0xe -> { // extended effects
@@ -441,6 +382,43 @@ public class MOD {
 
             } 
         }
+
+        private void applyPortaToNoteEffect() {
+            double sign = noteToPortaTo - notePeriod;
+            if (sign > 0) {
+                notePeriod += portaSpeed;
+                if (notePeriod > noteToPortaTo) {
+                    notePeriod = noteToPortaTo;
+                }
+            }
+            else if (sign < 0) {
+                notePeriod -= portaSpeed;
+                if (notePeriod < noteToPortaTo) {
+                    notePeriod = noteToPortaTo;
+                }
+            }
+            setNotePeriod(notePeriod);
+            setHardwareFrequency(noteFrequency);
+        }
+
+        private void applyVibratoEffect() {
+            vibratoPos += vibratoSpeed;
+            double x = (vibratoPos / 64.0) * 2 * Math.PI;
+            int n = (int) (vibratoDepth * 2.0 * Math.sin(x));
+            setHardwareFrequency(noteFrequency * Math.pow(2.0, (1.0 / 12.0 / 16.0) * n));
+        }
+
+        private void applyVolumeSlideEffect(PatternNote note) {
+            int volumeSlide = 0;
+            int up = (note.effectParameters & 0xf0) >> 8;
+            int down = (note.effectParameters & 0xf);
+            if (up > 0) volumeSlide = up;
+            if (down > 0) volumeSlide = -down;
+            if (up > 0 && down > 0) volumeSlide = 0;
+            setHardwareVolume(hardwareVolume + volumeSlide);
+            volume = hardwareVolume;
+        }
+
     }
     
     private int channelsNum = 0;
