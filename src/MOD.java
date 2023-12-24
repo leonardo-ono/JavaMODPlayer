@@ -95,6 +95,7 @@ public class MOD {
         int loopCount;
 
         int nextDelayNote;
+        int nextRetrigNote;
 
         public void setSample(Sample sample) {
             this.sample = sample;
@@ -262,7 +263,11 @@ public class MOD {
                         case 0x7 -> { // set tremolo waveform
                             tremoloWavControl = extendedValue;
                         }
-    
+
+                        case 0x9 -> { // retrig note
+                            nextRetrigNote = extendedValue;
+                        }
+
                         case 0xa -> { // fine volume slide up
                             int volumeSlide = extendedValue;
                             volume = hardwareVolume + volumeSlide;
@@ -275,6 +280,10 @@ public class MOD {
                             volume = hardwareVolume - volumeSlide;
                             if (volume < 0) volume = 0;
                             setHardwareVolume(volume);
+                        }
+
+                        case 0xd -> { // delay note
+                            nextDelayNote = extendedValue;
                         }
                     }
                 }
@@ -409,12 +418,6 @@ public class MOD {
                     int extendedEffectId = (note.effectParameters & 0xf0) >> 4;
                     int extendedValue = note.effectParameters & 0xf;
                     switch (extendedEffectId) {
-                        case 0x9 -> { // retrigger sample
-                            if (tick % extendedValue == 0) {
-                                triggerNote(mod, lastNote);
-                            }
-                        }
-    
                         case 0xc -> { // cut note
                             if (tick == extendedValue) {
                                 volume = 0;
@@ -423,6 +426,7 @@ public class MOD {
                         }
                     }
                 }
+
             } 
         }
     }
@@ -561,10 +565,6 @@ public class MOD {
                         }
                     }
 
-                    case 0xd -> { // delay note
-                        channel.nextDelayNote = extendedValue;
-                    }
-
                     case 0xe -> { // pattern delay
                         nextPatternDelay = extendedValue;
                     }
@@ -630,6 +630,7 @@ public class MOD {
 
                     for (int ch = 0; ch < channelsNum; ch++) {
                         channels[ch].nextDelayNote = 0;
+                        channels[ch].nextRetrigNote = 0;
                     }
 
                     while (currentPatternDelay > 0) {
@@ -639,8 +640,9 @@ public class MOD {
                             for (int ch = 0; ch < channelsNum; ch++) {
                                 Channel channel = channels[ch];
                                 PatternNote note = notes[patternIndex][currentRow][ch];
-                                
-                                if (tick == channel.nextDelayNote) {
+                                boolean retrigNote = channel.nextRetrigNote > 0 && (tick % channel.nextRetrigNote) == 0;
+
+                                if (tick == channel.nextDelayNote || retrigNote) {
                                     if (currentPatternDelay == 0) {
                                         
                                         // Effect EDx (Delay Note) - This effect is ignored on tick 0, 
