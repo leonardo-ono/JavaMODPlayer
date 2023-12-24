@@ -558,6 +558,10 @@ public class MOD {
                             }
                         }
                     }
+
+                    case 0xf -> { // invert loop
+                        // This effect is not supported in any player or tracker.  Don't bother with it.
+                    }
                 }
             }
 
