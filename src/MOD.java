@@ -2,6 +2,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -507,6 +508,9 @@ public class MOD {
         }
     }
 
+    private Stack<Integer> loopRowStack = new Stack<>();
+    private Stack<Integer> loopCountStack = new Stack<>();
+
     private void startEffect(PatternNote note, int orderTableIndex, int currentRow) {
         switch (note.effectNumber) {
             case 0xb -> { // jump to pattern
@@ -518,6 +522,9 @@ public class MOD {
                 // TODO: can't loop from last to first pattern.
                 //       since this is not streaming, it will get stuck when generating pcm
                 //if (startPattern > songLength - 1) startPattern = 0;
+
+                // TODO: how to force exit from infinite loop properly?
+                if (orderTableIndex == songLength - 1 && startPattern == 0) startPattern = songLength;
 
                 breakPattern = true;
             }
@@ -544,16 +551,37 @@ public class MOD {
                 int extendedEffectId = (note.effectParameters & 0xf0) >> 4;
                 int extendedValue = note.effectParameters & 0xf;
                 switch (extendedEffectId) {
+
+                    // check ODE2PTK.MOD order 4 (pattern #1)
+                    // nested pattern loop's:
+                    // row 18
+                    //    row 24
+                    //    row 25
+                    // row 31
                     case 0x6 -> { // pattern loop
                         if (extendedValue == 0) {
-                            loopRow = currentRow;
+                            if (!loopRowStack.contains(currentRow)) {
+                                loopRowStack.push(currentRow);
+                                loopCountStack.push(loopCount);
+                                loopCount = 0;
+                            }
                         }
                         else {
-                            loopCount = loopCount == 0 ? extendedValue : (loopCount - 1);
+                            if (loopCount == 0) {
+                                loopCount = extendedValue;
+                            }
+                            else {
+                                loopCount--;
+                            }
+                            
                             if (loopCount > 0) {
-                                startRow = loopRow;
+                                startRow = loopRowStack.peek();
                                 startPattern = orderTableIndex;
                                 breakPattern = true;
+                            }
+                            else {
+                                loopRowStack.pop();
+                                loopCount = loopCountStack.pop();
                             }
                         }
                     }
@@ -577,7 +605,6 @@ public class MOD {
     private int startPattern = 0;
     private int startRow = 0;
     private int loopCount = 0;
-    private int loopRow = 0;
     private int lastJumpToPatternRow = -1;
 
     public byte[] generatePCM() {
@@ -587,7 +614,6 @@ public class MOD {
         startPattern = 0;
         startRow = 0;
         loopCount = 0;
-        loopRow = 0;
         lastJumpToPatternRow = -1;
 
         boolean playing = true;
@@ -607,8 +633,6 @@ public class MOD {
                         startRow = 0;
                     }
                     
-                    System.out.printf("pattern %d row %d \n", patternIndex, currentRow);
-
                     for (int tick = 0; tick < speed; tick++) {
                         for (int ch = 0; ch < channelsNum; ch++) {
                             Channel channel = channels[ch];
