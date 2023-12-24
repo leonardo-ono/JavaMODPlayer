@@ -263,6 +263,10 @@ public class MOD {
                         case 0x7 -> { // set tremolo waveform
                             tremoloWavControl = extendedValue;
                         }
+                        
+                        case 0x8 -> { // 16 position panning
+                            // not implemented since this version does not support stereo, only mono sound
+                        }
 
                         case 0x9 -> { // retrig note
                             nextRetrigNote = extendedValue;
