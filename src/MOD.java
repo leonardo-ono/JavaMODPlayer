@@ -220,7 +220,11 @@ public class MOD {
                         sampleIndex = lastSampleIndex;
                     }
                 }
-    
+                
+                case 0x8 -> { // pan
+                    // not implemented since this version does not support stereo, only mono sound
+                }
+
                 case 0xc -> { // set volume
                     setHardwareVolume(note.effectParameters);
                     volume = note.effectParameters;
