@@ -559,6 +559,10 @@ public class MOD {
                         }
                     }
 
+                    case 0xe -> { // pattern delay
+                        nextPatternDelay = extendedValue;
+                    }
+
                     case 0xf -> { // invert loop
                         // This effect is not supported in any player or tracker.  Don't bother with it.
                     }
@@ -582,6 +586,7 @@ public class MOD {
     private int startPattern = 0;
     private int startRow = 0;
     private int lastJumpToPatternRow = -1;
+    private int nextPatternDelay = 0;
 
     public byte[] generatePCM() {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -590,6 +595,7 @@ public class MOD {
         startPattern = 0;
         startRow = 0;
         lastJumpToPatternRow = -1;
+        nextPatternDelay = 0;
         
         for (int ch = 0; ch < channelsNum; ch++) {
             channels[ch].loopRow = 0;
@@ -612,33 +618,42 @@ public class MOD {
                     else {
                         startRow = 0;
                     }
-                    
-                    for (int tick = 0; tick < speed; tick++) {
-                        for (int ch = 0; ch < channelsNum; ch++) {
-                            Channel channel = channels[ch];
-                            PatternNote note = notes[patternIndex][currentRow][ch];
 
-                            if (tick == 0) {
-                                channel.triggerNote(this, note);
+                    int currentPatternDelay = (nextPatternDelay <= 0) ? 1 : nextPatternDelay;
+                    nextPatternDelay = 0;
 
-                                if (note.effectNumber != 0 || note.effectParameters != 0) {
-                                    channel.startEffect(note);
-                                    startEffect(channel, note, orderTableIndex, currentRow);
+                    while (currentPatternDelay > 0) {
+                        currentPatternDelay--;
+
+                        for (int tick = 0; tick < speed; tick++) {
+                            for (int ch = 0; ch < channelsNum; ch++) {
+                                Channel channel = channels[ch];
+                                PatternNote note = notes[patternIndex][currentRow][ch];
+    
+                                if (tick == 0) {
+                                    if (currentPatternDelay == 0) {
+                                        channel.triggerNote(this, note);
+        
+                                        if (note.effectNumber != 0 || note.effectParameters != 0) {
+                                            channel.startEffect(note);
+                                            startEffect(channel, note, orderTableIndex, currentRow);
+                                        }
+                                    }
+                                }
+                                else {
+                                    channel.updateEffect(tick, note);
                                 }
                             }
-                            else {
-                                channel.updateEffect(tick, note);
+    
+                            // mix all channels
+                            for (int s = 0; s < samplesPerTick; s++) {
+                                byte mixedSample = 0;
+                                for (int ch = 0; ch < channelsNum; ch++) {
+                                    int ms = mixedSample + channels[ch].getNextSample() / 2;
+                                    mixedSample = (byte) Math.max(Math.min(ms, 127), -128);
+                                }
+                                baos.write(mixedSample);
                             }
-                        }
-
-                        // mix all channels
-                        for (int s = 0; s < samplesPerTick; s++) {
-                            byte mixedSample = 0;
-                            for (int ch = 0; ch < channelsNum; ch++) {
-                                int ms = mixedSample + channels[ch].getNextSample() / 2;
-                                mixedSample = (byte) Math.max(Math.min(ms, 127), -128);
-                            }
-                            baos.write(mixedSample);
                         }
                     }
                 }
