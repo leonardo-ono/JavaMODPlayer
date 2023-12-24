@@ -230,6 +230,10 @@ public class MOD {
                     int extendedEffectId = (note.effectParameters & 0xf0) >> 4;
                     int extendedValue = note.effectParameters & 0xf;
                     switch (extendedEffectId) {
+                        case 0x0 -> { // set filter
+                            // This effect turns on or off the hardware filter (not applicable to most pc sound cards)
+                        } 
+
                         case 0x1 -> { // fine portamento up
                             notePeriod -= extendedValue;
                             if (notePeriod < 108) {
