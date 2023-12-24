@@ -129,7 +129,8 @@ public class MOD {
     
             if (sample.useLoop) {
                 // before loop
-                if (sampleIndexInt <= sample.loopEnd) {
+                int loopEnd = Math.min(sample.loopEnd, sample.sampleData.length);
+                if (sampleIndexInt <= loopEnd) {
                     nextSample = sample.sampleData[sampleIndexInt];
                 }
                 // after loop
@@ -509,10 +510,15 @@ public class MOD {
     private void startEffect(PatternNote note, int orderTableIndex, int currentRow) {
         switch (note.effectNumber) {
             case 0xb -> { // jump to pattern
+                lastJumpToPatternRow = currentRow;
                 startRow = 0;
                 startPattern = note.effectParameters;
                 if (startPattern < 0) startPattern = 0;
-                if (startPattern > songLength - 1) startPattern = 0;
+                
+                // TODO: can't loop from last to first pattern.
+                //       since this is not streaming, it will get stuck when generating pcm
+                //if (startPattern > songLength - 1) startPattern = 0;
+
                 breakPattern = true;
             }
 
@@ -520,9 +526,15 @@ public class MOD {
                 startRow = 10 * ((note.effectParameters & 0xf0) >> 4) + (note.effectParameters & 0xf);
                 if (startRow < 0) startRow = 0;
                 if (startRow > 63) startRow = 0;
-                startPattern = orderTableIndex + 1;
+
+                // ref: FMODDOC.TXT - 5.12 Effect Bxy (Jump To Pattern)
+                // You should set a flag to say there has been a pattern jump, so if there
+                // is a pattern break on the same row, the pattern break effect will not
+                // increment the order.  I know its strange but it is a protracker feature.
+                if (currentRow != lastJumpToPatternRow) startPattern = orderTableIndex + 1;
                 
-                // TODO: can't loop from last to first pattern
+                // TODO: can't loop from last to first pattern.
+                //       since this is not streaming, it will get stuck when generating pcm
                 //if (startPattern > songLength - 1) startPattern = 0;
 
                 breakPattern = true;
@@ -566,6 +578,7 @@ public class MOD {
     private int startRow = 0;
     private int loopCount = 0;
     private int loopRow = 0;
+    private int lastJumpToPatternRow = -1;
 
     public byte[] generatePCM() {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -575,6 +588,7 @@ public class MOD {
         startRow = 0;
         loopCount = 0;
         loopRow = 0;
+        lastJumpToPatternRow = -1;
 
         boolean playing = true;
 
@@ -592,6 +606,8 @@ public class MOD {
                     else {
                         startRow = 0;
                     }
+                    
+                    System.out.printf("pattern %d row %d \n", patternIndex, currentRow);
 
                     for (int tick = 0; tick < speed; tick++) {
                         for (int ch = 0; ch < channelsNum; ch++) {
@@ -615,7 +631,7 @@ public class MOD {
                         for (int s = 0; s < samplesPerTick; s++) {
                             byte mixedSample = 0;
                             for (int ch = 0; ch < channelsNum; ch++) {
-                                int ms = mixedSample + channels[ch].getNextSample() / 4;
+                                int ms = mixedSample + channels[ch].getNextSample() / 2;
                                 mixedSample = (byte) Math.max(Math.min(ms, 127), -128);
                             }
                             baos.write(mixedSample);
