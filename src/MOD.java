@@ -231,18 +231,20 @@ public class MOD {
                     int extendedValue = note.effectParameters & 0xf;
                     switch (extendedEffectId) {
                         case 0x1 -> { // fine portamento up
-                            noteFrequency -= note.effectParameters;
-                            if (noteFrequency < AMIGA_CLOCK / (2 * 108.0)) {
-                                noteFrequency = AMIGA_CLOCK / (2 * 108.0);
+                            notePeriod -= extendedValue;
+                            if (notePeriod < 108) {
+                                notePeriod = 108;
                             }
+                            setNotePeriod(notePeriod);
                             setHardwareFrequency(noteFrequency);
                         }
     
                         case 0x2 -> { // fine portamento down    
-                            noteFrequency += note.effectParameters;
-                            if (noteFrequency > AMIGA_CLOCK / (2 * 907.0)) {
-                                noteFrequency = AMIGA_CLOCK / (2 * 907.0);
+                            notePeriod += extendedValue;
+                            if (notePeriod > 907) {
+                                notePeriod = 907;
                             }
+                            setNotePeriod(notePeriod);
                             setHardwareFrequency(noteFrequency);
                         }
                         
