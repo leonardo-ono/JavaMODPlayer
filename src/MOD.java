@@ -93,7 +93,9 @@ public class MOD {
 
         int loopRow;
         int loopCount;
-     
+
+        int nextDelayNote;
+
         public void setSample(Sample sample) {
             this.sample = sample;
         }
@@ -559,6 +561,10 @@ public class MOD {
                         }
                     }
 
+                    case 0xd -> { // delay note
+                        channel.nextDelayNote = extendedValue;
+                    }
+
                     case 0xe -> { // pattern delay
                         nextPatternDelay = extendedValue;
                     }
@@ -622,6 +628,10 @@ public class MOD {
                     int currentPatternDelay = (nextPatternDelay <= 0) ? 1 : nextPatternDelay;
                     nextPatternDelay = 0;
 
+                    for (int ch = 0; ch < channelsNum; ch++) {
+                        channels[ch].nextDelayNote = 0;
+                    }
+
                     while (currentPatternDelay > 0) {
                         currentPatternDelay--;
 
@@ -629,10 +639,16 @@ public class MOD {
                             for (int ch = 0; ch < channelsNum; ch++) {
                                 Channel channel = channels[ch];
                                 PatternNote note = notes[patternIndex][currentRow][ch];
-    
-                                if (tick == 0) {
+                                
+                                if (tick == channel.nextDelayNote) {
                                     if (currentPatternDelay == 0) {
-                                        channel.triggerNote(this, note);
+                                        
+                                        // Effect EDx (Delay Note) - This effect is ignored on tick 0, 
+                                        // AND you must make sure you don't play the sample on tick 0.
+                                        boolean isDelayNoteEffect = note.effectNumber == 14 && (note.effectParameters & 0xf0) == 0xd0;
+                                        if (!(isDelayNoteEffect && tick == 0)) {
+                                            channel.triggerNote(this, note);
+                                        }
         
                                         if (note.effectNumber != 0 || note.effectParameters != 0) {
                                             channel.startEffect(note);
